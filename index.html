@@ -1,0 +1,981 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nainital Disaster Risk Map</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+            background-color: #f5f5f5;
+            color: #1a1a1a;
+            overflow: hidden;
+        }
+
+        /* Header */
+        .header {
+            background-color: #ffffff;
+            height: 64px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            position: relative;
+            z-index: 1000;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .location-icon {
+            width: 24px;
+            height: 24px;
+            color: #60a5fa;
+        }
+
+        .header-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .toggle-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #ffffff;
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .switch {
+            position: relative;
+            width: 42px;
+            height: 24px;
+            background: #3b82f6;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .switch::after {
+            content: '';
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            transition: transform 0.2s;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+
+        .switch.off {
+            background: #9ca3af;
+        }
+
+        .switch.off::after {
+            transform: translateX(18px);
+        }
+
+        .toggle-label {
+            font-size: 14px;
+            font-weight: 500;
+            color: #6b7280;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .layers-icon {
+            width: 18px;
+            height: 18px;
+        }
+
+        /* Main Container */
+        .main-container {
+            display: flex;
+            height: calc(100vh - 64px);
+        }
+
+        /* Map Container */
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Map Info Bubble */
+        .map-info-bubble {
+            position: absolute;
+            top: 14px;
+            left: 14px;
+            background: white;
+            padding: 8px 14px;
+            border-radius: 6px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+            z-index: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            color: #6b7280;
+        }
+
+        .info-icon-circle {
+            width: 18px;
+            height: 18px;
+            color: #60a5fa;
+        }
+
+        /* Legend Box */
+        .legend-box {
+            position: absolute;
+            bottom: 20px;
+            left: 14px;
+            background: white;
+            padding: 14px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            z-index: 500;
+            min-width: 190px;
+        }
+
+        .legend-title {
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #1a1a1a;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            margin-bottom: 8px;
+        }
+
+        .legend-item:last-child {
+            margin-bottom: 0;
+        }
+
+        .legend-dot {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .legend-content {
+            flex: 1;
+        }
+
+        .legend-label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1a1a1a;
+            line-height: 1.3;
+        }
+
+        .legend-desc {
+            font-size: 11px;
+            color: #9ca3af;
+            line-height: 1.3;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 280px;
+            background: #ffffff;
+            overflow-y: auto;
+            padding: 0;
+            border-left: 1px solid #e5e7eb;
+        }
+
+        .sidebar::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .sidebar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .sidebar::-webkit-scrollbar-thumb {
+            background: #d1d5db;
+            border-radius: 3px;
+        }
+
+        /* Risk Status Card */
+        .risk-status-card {
+            background: #fffbeb;
+            padding: 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .status-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .folder-icon {
+            width: 18px;
+            height: 18px;
+            color: #f59e0b;
+        }
+
+        .status-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .caution-badge {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+
+        .warning-icon-small {
+            width: 14px;
+            height: 14px;
+            color: #f59e0b;
+        }
+
+        .caution-text {
+            font-size: 12px;
+            font-weight: 600;
+            color: #f59e0b;
+        }
+
+        /* Risk Counts Grid */
+        .risk-counts-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .risk-count-box {
+            text-align: center;
+            padding: 10px 8px;
+            border-radius: 6px;
+        }
+
+        .risk-count-box.high {
+            background-color: #fef2f2;
+        }
+
+        .risk-count-box.medium {
+            background-color: #fffbeb;
+        }
+
+        .risk-count-box.low {
+            background-color: #f0fdf4;
+        }
+
+        .count-number {
+            font-size: 24px;
+            font-weight: 700;
+            line-height: 1;
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .risk-count-box.high .count-number {
+            color: #dc2626;
+        }
+
+        .risk-count-box.medium .count-number {
+            color: #f59e0b;
+        }
+
+        .risk-count-box.low .count-number {
+            color: #16a34a;
+        }
+
+        .count-label {
+            font-size: 11px;
+            color: #6b7280;
+            font-weight: 500;
+        }
+
+        .assessment-text {
+            font-size: 11px;
+            color: #9ca3af;
+            line-height: 1.5;
+        }
+
+        /* Zone Info Card */
+        .zone-info-card {
+            background: white;
+            padding: 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .zone-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+
+        .zone-header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: 1;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #16a34a;
+            border-radius: 50%;
+        }
+
+        .zone-name-text {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .close-x {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+            color: #9ca3af;
+            font-size: 18px;
+            font-weight: 300;
+            line-height: 1;
+        }
+
+        .close-x:hover {
+            color: #6b7280;
+        }
+
+        .zone-location-line {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin-bottom: 8px;
+            font-size: 11px;
+            color: #9ca3af;
+        }
+
+        .pin-icon-svg {
+            width: 12px;
+            height: 12px;
+            color: #9ca3af;
+        }
+
+        .risk-badge-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .risk-badge-pill.low {
+            background-color: #f0fdf4;
+            color: #16a34a;
+        }
+
+        .risk-badge-pill.medium {
+            background-color: #fffbeb;
+            color: #f59e0b;
+        }
+
+        .risk-badge-pill.high {
+            background-color: #fef2f2;
+            color: #dc2626;
+        }
+
+        .triangle-icon-svg {
+            width: 12px;
+            height: 12px;
+        }
+
+        .zone-description {
+            font-size: 12px;
+            color: #6b7280;
+            line-height: 1.5;
+            margin-bottom: 14px;
+        }
+
+        /* Risk Factors Section */
+        .risk-factors-header {
+            font-size: 10px;
+            font-weight: 700;
+            color: #6b7280;
+            letter-spacing: 0.05em;
+            margin-bottom: 8px;
+        }
+
+        .factors-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 14px;
+        }
+
+        .factor-box {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+        }
+
+        .factor-icon-svg {
+            width: 14px;
+            height: 14px;
+            color: #60a5fa;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .factor-content {
+            flex: 1;
+        }
+
+        .factor-label {
+            font-size: 10px;
+            color: #9ca3af;
+            font-weight: 500;
+            display: block;
+        }
+
+        .factor-value {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1a1a1a;
+            display: block;
+        }
+
+        /* Primary Risks Section */
+        .primary-risks-header {
+            font-size: 10px;
+            font-weight: 700;
+            color: #6b7280;
+            letter-spacing: 0.05em;
+            margin-bottom: 6px;
+        }
+
+        .primary-risk-item {
+            font-size: 12px;
+            color: #1a1a1a;
+            padding: 6px 0;
+        }
+
+        /* Methodology Section */
+        .methodology-card {
+            background: white;
+            padding: 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .methodology-header {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 8px;
+        }
+
+        .chart-icon-svg {
+            width: 16px;
+            height: 16px;
+            color: #60a5fa;
+        }
+
+        .methodology-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #1a1a1a;
+        }
+
+        .methodology-text {
+            font-size: 11px;
+            color: #6b7280;
+            line-height: 1.5;
+            margin-bottom: 8px;
+        }
+
+        .methodology-list {
+            padding-left: 0;
+            list-style: none;
+        }
+
+        .methodology-list li {
+            font-size: 11px;
+            color: #6b7280;
+            line-height: 1.5;
+            padding-left: 14px;
+            position: relative;
+        }
+
+        .methodology-list li::before {
+            content: '•';
+            position: absolute;
+            left: 4px;
+            color: #3b82f6;
+            font-weight: bold;
+        }
+
+        /* Leaflet Custom Styles */
+        .leaflet-popup-content-wrapper {
+            border-radius: 8px;
+            box-shadow: 0 3px 14px rgba(0, 0, 0, 0.15);
+        }
+
+        .leaflet-popup-content {
+            margin: 12px 14px;
+            min-width: 160px;
+        }
+
+        .popup-zone-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #1a1a1a;
+            margin-bottom: 6px;
+        }
+
+        .popup-risk-level {
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+
+        .popup-description {
+            font-size: 11px;
+            color: #6b7280;
+            line-height: 1.4;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .sidebar {
+                width: 260px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .main-container {
+                flex-direction: column;
+            }
+
+            .map-container {
+                height: 55vh;
+            }
+
+            .sidebar {
+                width: 100%;
+                height: 45vh;
+                border-left: none;
+                border-top: 1px solid #e5e7eb;
+            }
+
+            .legend-box {
+                bottom: 10px;
+                left: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-left">
+            <svg class="location-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+            </svg>
+            <h1 class="header-title">Nainital Disaster Risk Map</h1>
+        </div>
+        <div class="header-right">
+            <div class="toggle-wrapper">
+                <div class="switch" id="layerToggle"></div>
+                <label class="toggle-label">
+                    <svg class="layers-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path>
+                    </svg>
+                    Risk Layers
+                </label>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-container">
+        <!-- Map Container -->
+        <div class="map-container">
+            <div class="map-info-bubble">
+                <svg class="info-icon-circle" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <circle cx="12" cy="12" r="10" stroke-width="2"></circle>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 16v-4m0-4h.01"></path>
+                </svg>
+                <span>Click zones for details</span>
+            </div>
+
+            <div id="map"></div>
+
+            <!-- Legend Box -->
+            <div class="legend-box">
+                <div class="legend-title">Risk Levels</div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background-color: #dc2626;"></div>
+                    <div class="legend-content">
+                        <div class="legend-label">High Risk</div>
+                        <div class="legend-desc">Immediate caution ad...</div>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background-color: #f59e0b;"></div>
+                    <div class="legend-content">
+                        <div class="legend-label">Medium Risk</div>
+                        <div class="legend-desc">Moderate vulnerability</div>
+                    </div>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-dot" style="background-color: #16a34a;"></div>
+                    <div class="legend-content">
+                        <div class="legend-label">Low Risk</div>
+                        <div class="legend-desc">Relatively safe area</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <!-- Risk Status Card -->
+            <div class="risk-status-card">
+                <div class="status-header">
+                    <svg class="folder-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z"></path>
+                    </svg>
+                    <h2 class="status-title">Nainital Risk Status</h2>
+                </div>
+                
+                <div class="caution-badge">
+                    <svg class="warning-icon-small" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <circle cx="12" cy="12" r="10" stroke-width="2"></circle>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01"></path>
+                    </svg>
+                    <span class="caution-text">Moderate Caution</span>
+                </div>
+
+                <div class="risk-counts-grid">
+                    <div class="risk-count-box high">
+                        <span class="count-number">12</span>
+                        <span class="count-label">High</span>
+                    </div>
+                    <div class="risk-count-box medium">
+                        <span class="count-number">12</span>
+                        <span class="count-label">Medium</span>
+                    </div>
+                    <div class="risk-count-box low">
+                        <span class="count-number">9</span>
+                        <span class="count-label">Low</span>
+                    </div>
+                </div>
+
+                <p class="assessment-text">
+                    Assessment based on rainfall patterns, terrain slope, soil stability, and historical incident data.
+                </p>
+            </div>
+
+            <!-- Zone Info Card -->
+            <div class="zone-info-card" id="zoneCard">
+                <div class="zone-header">
+                    <div class="zone-header-left">
+                        <span class="status-dot" id="statusDot"></span>
+                        <span class="zone-name-text" id="zoneNameHeader">Sanatorium Complex</span>
+                    </div>
+                    <span class="close-x" id="closeBtn" style="display: none;">×</span>
+                </div>
+
+                <div class="zone-location-line">
+                    <svg class="pin-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    <span>Nainital, Uttarakhand</span>
+                </div>
+
+                <div class="risk-badge-pill low" id="riskBadge">
+                    <svg class="triangle-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                    </svg>
+                    <span>Low Risk</span>
+                </div>
+
+                <p class="zone-description" id="zoneDesc">
+                    Historic health facility on gentle slopes. Excellent infrastructure and soil stabilization measures.
+                </p>
+
+                <div class="risk-factors-header">RISK FACTORS</div>
+                <div class="factors-grid">
+                    <div class="factor-box">
+                        <svg class="factor-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"></path>
+                        </svg>
+                        <div class="factor-content">
+                            <span class="factor-label">Rainfall</span>
+                            <span class="factor-value" id="rainfallValue">1850mm/yr</span>
+                        </div>
+                    </div>
+                    <div class="factor-box">
+                        <svg class="factor-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11.5V14m0-2.5v-6a1.5 1.5 0 113 0m-3 6a1.5 1.5 0 00-3 0v2a7.5 7.5 0 0015 0v-5a1.5 1.5 0 00-3 0m-6-3V11m0-5.5v-1a1.5 1.5 0 013 0v1m0 0V11m0-5.5a1.5 1.5 0 013 0v3m0 0V11"></path>
+                        </svg>
+                        <div class="factor-content">
+                            <span class="factor-label">Slope</span>
+                            <span class="factor-value" id="slopeValue">12°</span>
+                        </div>
+                    </div>
+                    <div class="factor-box">
+                        <svg class="factor-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        <div class="factor-content">
+                            <span class="factor-label">Incidents (10yr)</span>
+                            <span class="factor-value" id="incidentsValue">0</span>
+                        </div>
+                    </div>
+                    <div class="factor-box">
+                        <svg class="factor-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3"></path>
+                        </svg>
+                        <div class="factor-content">
+                            <span class="factor-label">Soil</span>
+                            <span class="factor-value" id="soilValue">Stable</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="primary-risks-header">PRIMARY RISKS</div>
+                <div class="primary-risk-item" id="primaryRisk">Minor Waterlogging</div>
+            </div>
+
+            <!-- Methodology Card -->
+            <div class="methodology-card">
+                <div class="methodology-header">
+                    <svg class="chart-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                    </svg>
+                    <span class="methodology-title">Prediction Methodology</span>
+                </div>
+                <p class="methodology-text">
+                    Risk levels are calculated using a weighted scoring system based on:
+                </p>
+                <ul class="methodology-list">
+                    <li>Annual rainfall intensity (30pts)</li>
+                </ul>
+            </div>
+        </aside>
+    </main>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // Risk calculation function
+        function calculateRiskLevel(rainfall, slope, incidents, soilStability) {
+            const rainfallScore = Math.min(rainfall / 3000, 1) * 40;
+            const slopeScore = Math.min(slope / 45, 1) * 30;
+            const incidentScore = Math.min(incidents / 20, 1) * 20;
+            const soilScore = (soilStability === 'unstable' ? 1 : soilStability === 'moderate' ? 0.5 : 0) * 10;
+            
+            const totalScore = rainfallScore + slopeScore + incidentScore + soilScore;
+            
+            if (totalScore >= 70) return 'high';
+            if (totalScore >= 40) return 'medium';
+            return 'low';
+        }
+
+        // Determine primary risk
+        function getPrimaryRisk(zone) {
+            if (zone.risk === 'high') {
+                if (zone.slope > 35) return 'Landslide Prone';
+                if (zone.rainfall > 2500) return 'Flash Floods';
+                return 'Multiple Hazards';
+            } else if (zone.risk === 'medium') {
+                if (zone.slope > 20) return 'Slope Instability';
+                return 'Seasonal Flooding';
+            } else {
+                return 'Minor Waterlogging';
+            }
+        }
+
+        // Zone data
+        const nainitalZones = [
+            // High Risk
+            { name: 'Mallital Central', coordinates: [[29.3919, 79.4542], [29.3889, 79.4542], [29.3889, 79.4602], [29.3919, 79.4602]], rainfall: 2800, slope: 38, incidents: 15, soilStability: 'unstable', description: 'Dense commercial area with steep slopes and high rainfall. History of landslides during monsoon season.' },
+            { name: 'Snowview Area', coordinates: [[29.3989, 79.4482], [29.3959, 79.4482], [29.3959, 79.4542], [29.3989, 79.4542]], rainfall: 2600, slope: 42, incidents: 18, soilStability: 'unstable', description: 'Tourist area on steep hillside. Heavy construction and unstable soil conditions increase landslide risk.' },
+            { name: 'Ayarpata Slopes', coordinates: [[29.3949, 79.4632], [29.3919, 79.4632], [29.3919, 79.4692], [29.3949, 79.4692]], rainfall: 2900, slope: 40, incidents: 16, soilStability: 'unstable', description: 'High elevation slopes with poor drainage. Significant erosion and past landslide incidents.' },
+            { name: 'Sher Ka Danda', coordinates: [[29.3859, 79.4482], [29.3829, 79.4482], [29.3829, 79.4542], [29.3859, 79.4542]], rainfall: 2700, slope: 39, incidents: 14, soilStability: 'moderate', description: 'Ridge area with mixed residential-forest zones. Vulnerable to heavy rainfall and soil erosion.' },
+            { name: 'Naina Peak Trail', coordinates: [[29.4019, 79.4572], [29.3989, 79.4572], [29.3989, 79.4632], [29.4019, 79.4632]], rainfall: 2850, slope: 41, incidents: 12, soilStability: 'unstable', description: 'Trekking route with steep terrain. Loose soil and heavy tourist traffic increase instability.' },
+            { name: 'Tiffin Top Vicinity', coordinates: [[29.3799, 79.4422], [29.3769, 79.4422], [29.3769, 79.4482], [29.3799, 79.4482]], rainfall: 2750, slope: 37, incidents: 13, soilStability: 'moderate', description: 'Popular viewpoint area. Deforestation and trail erosion create landslide vulnerability.' },
+            { name: 'Kilbury Region', coordinates: [[29.3829, 79.4722], [29.3799, 79.4722], [29.3799, 79.4782], [29.3829, 79.4782]], rainfall: 2650, slope: 36, incidents: 11, soilStability: 'moderate', description: 'Forested slopes with winding roads. Water runoff creates periodic instability during monsoons.' },
+            { name: 'Naukuchiatal Road', coordinates: [[29.3739, 79.4782], [29.3709, 79.4782], [29.3709, 79.4842], [29.3739, 79.4842]], rainfall: 2550, slope: 35, incidents: 10, soilStability: 'moderate', description: 'Connecting road area prone to landslips. Cutting and filling activities destabilize slopes.' },
+            { name: 'Bhimtal Approach', coordinates: [[29.3649, 79.4962], [29.3619, 79.4962], [29.3619, 79.5022], [29.3649, 79.5022]], rainfall: 2480, slope: 34, incidents: 9, soilStability: 'moderate', description: 'Hill road section with moderate slope. Occasional rock falls and soil slippage during heavy rains.' },
+            { name: 'Dorothy Seat Path', coordinates: [[29.3889, 79.4362], [29.3859, 79.4362], [29.3859, 79.4422], [29.3889, 79.4422]], rainfall: 2600, slope: 38, incidents: 14, soilStability: 'unstable', description: 'Hiking trail with steep sections. Erosion from foot traffic increases landslide potential.' },
+            { name: 'Tallital Slopes', coordinates: [[29.3829, 79.4602], [29.3799, 79.4602], [29.3799, 79.4662], [29.3829, 79.4662]], rainfall: 2700, slope: 36, incidents: 12, soilStability: 'moderate', description: 'Southern lake area with residential development. Water seepage affects slope stability.' },
+            { name: 'Khurpatal Hills', coordinates: [[29.3589, 79.5082], [29.3559, 79.5082], [29.3559, 79.5142], [29.3589, 79.5142]], rainfall: 2450, slope: 33, incidents: 8, soilStability: 'moderate', description: 'Outlying hill region with agricultural terraces. Terrace failures occur during intense rainfall.' },
+            
+            // Medium Risk
+            { name: 'Nainital Lake Basin', coordinates: [[29.3889, 79.4572], [29.3859, 79.4572], [29.3859, 79.4632], [29.3889, 79.4632]], rainfall: 2200, slope: 15, incidents: 3, soilStability: 'stable', description: 'Central lake area with flat terrain. Flooding risk during extreme rainfall, but landslide risk is low.' },
+            { name: 'Mall Road District', coordinates: [[29.3919, 79.4512], [29.3889, 79.4512], [29.3889, 79.4572], [29.3919, 79.4572]], rainfall: 2300, slope: 20, incidents: 5, soilStability: 'stable', description: 'Main commercial area with moderate slopes. Well-maintained retaining walls reduce but don\'t eliminate risk.' },
+            { name: 'Bara Bazaar', coordinates: [[29.3949, 79.4542], [29.3919, 79.4542], [29.3919, 79.4602], [29.3949, 79.4602]], rainfall: 2350, slope: 22, incidents: 6, soilStability: 'moderate', description: 'Market area with mixed construction. Drainage issues during heavy rains create localized flooding.' },
+            { name: 'Tallital Flats', coordinates: [[29.3829, 79.4542], [29.3799, 79.4542], [29.3799, 79.4602], [29.3829, 79.4602]], rainfall: 2250, slope: 18, incidents: 4, soilStability: 'stable', description: 'Relatively flat residential area near lake. Moderate drainage capacity handles typical monsoon rains.' },
+            { name: 'Sukhatal Valley', coordinates: [[29.3769, 79.4632], [29.3739, 79.4632], [29.3739, 79.4692], [29.3769, 79.4692]], rainfall: 2150, slope: 16, incidents: 3, soilStability: 'stable', description: 'Valley bottom area with seasonal lake. Good natural drainage but occasional waterlogging.' },
+            { name: 'Hanumangarhi Base', coordinates: [[29.3949, 79.4482], [29.3919, 79.4482], [29.3919, 79.4542], [29.3949, 79.4542]], rainfall: 2400, slope: 24, incidents: 7, soilStability: 'moderate', description: 'Temple area at hill base. Pilgrim traffic and construction require ongoing slope management.' },
+            { name: 'Balrampur Area', coordinates: [[29.3709, 79.4662], [29.3679, 79.4662], [29.3679, 79.4722], [29.3709, 79.4722]], rainfall: 2100, slope: 19, incidents: 4, soilStability: 'stable', description: 'Lower elevation mixed-use area. Adequate infrastructure keeps risk at moderate levels.' },
+            { name: 'Ramgarh Road', coordinates: [[29.3679, 79.4842], [29.3649, 79.4842], [29.3649, 79.4902], [29.3679, 79.4902]], rainfall: 2050, slope: 21, incidents: 5, soilStability: 'stable', description: 'Access road with gentle slopes. Standard road maintenance keeps landslide risk manageable.' },
+            { name: 'Pangot Connector', coordinates: [[29.3649, 79.5022], [29.3619, 79.5022], [29.3619, 79.5082], [29.3649, 79.5082]], rainfall: 2000, slope: 23, incidents: 6, soilStability: 'moderate', description: 'Forest road section with moderate traffic. Natural vegetation provides some slope protection.' },
+            { name: 'Kaladhungi Highway', coordinates: [[29.3589, 79.4602], [29.3559, 79.4602], [29.3559, 79.4662], [29.3589, 79.4662]], rainfall: 1950, slope: 17, incidents: 3, soilStability: 'stable', description: 'Major highway section with engineered slopes. Regular maintenance keeps risk at moderate level.' },
+            { name: 'Bhowali Junction', coordinates: [[29.3859, 79.5082], [29.3829, 79.5082], [29.3829, 79.5142], [29.3859, 79.5142]], rainfall: 1900, slope: 14, incidents: 2, soilStability: 'stable', description: 'Market town on relatively flat terrain. Good drainage systems handle normal monsoon flows.' },
+            { name: 'Sattal Region', coordinates: [[29.3529, 79.5202], [29.3499, 79.5202], [29.3499, 79.5262], [29.3529, 79.5262]], rainfall: 2100, slope: 20, incidents: 4, soilStability: 'stable', description: 'Lake cluster area with moderate slopes. Tourism development includes proper drainage planning.' },
+            
+            // Low Risk
+            { name: 'Sherwood College Area', coordinates: [[29.3859, 79.4632], [29.3829, 79.4632], [29.3829, 79.4692], [29.3859, 79.4692]], rainfall: 2000, slope: 16, incidents: 0, soilStability: 'stable', description: 'Well-maintained institutional area with proper drainage and retaining structures.' },
+            { name: 'Sanatorium Complex', coordinates: [[29.3979, 79.4692], [29.3949, 79.4692], [29.3949, 79.4752], [29.3979, 79.4752]], rainfall: 1850, slope: 12, incidents: 0, soilStability: 'stable', description: 'Historic health facility on gentle slopes. Excellent infrastructure and soil stabilization measures.' },
+            { name: 'Government Complex', coordinates: [[29.3889, 79.4692], [29.3859, 79.4692], [29.3859, 79.4752], [29.3889, 79.4752]], rainfall: 1900, slope: 13, incidents: 1, soilStability: 'stable', description: 'Administrative area with planned development. Strong building codes and slope management.' },
+            { name: 'Naini Lake South', coordinates: [[29.3799, 79.4572], [29.3769, 79.4572], [29.3769, 79.4632], [29.3799, 79.4632]], rainfall: 1950, slope: 8, incidents: 0, soilStability: 'stable', description: 'Lake shore area with minimal slope. Natural basin provides protection from landslides.' },
+            { name: 'Flats Area', coordinates: [[29.3769, 79.4542], [29.3739, 79.4542], [29.3739, 79.4602], [29.3769, 79.4602]], rainfall: 1800, slope: 10, incidents: 0, soilStability: 'stable', description: 'Low-lying residential area with excellent natural drainage. Very stable ground conditions.' },
+            { name: 'Bhimtal Lake Area', coordinates: [[29.3529, 79.5082], [29.3499, 79.5082], [29.3499, 79.5142], [29.3529, 79.5142]], rainfall: 1750, slope: 9, incidents: 0, soilStability: 'stable', description: 'Large lake basin with flat surrounding terrain. Natural water absorption prevents flooding.' },
+            { name: 'Naukuchiatal Basin', coordinates: [[29.3619, 79.4902], [29.3589, 79.4902], [29.3589, 79.4962], [29.3619, 79.4962]], rainfall: 1700, slope: 11, incidents: 0, soilStability: 'stable', description: 'Nine-cornered lake in natural depression. Gentle slopes and stable soil make it very safe.' },
+            { name: 'Eco Garden Park', coordinates: [[29.3919, 79.4632], [29.3889, 79.4632], [29.3889, 79.4692], [29.3919, 79.4692]], rainfall: 1850, slope: 7, incidents: 0, soilStability: 'stable', description: 'Developed park area with landscaping. Professional drainage design and soil stabilization.' },
+            { name: 'Jaiharikhal Plains', coordinates: [[29.3469, 79.5142], [29.3439, 79.5142], [29.3439, 79.5202], [29.3469, 79.5202]], rainfall: 1650, slope: 6, incidents: 0, soilStability: 'stable', description: 'Agricultural plains with minimal elevation change. Excellent soil composition and drainage.' }
+        ];
+
+        // Calculate risk for each zone
+        nainitalZones.forEach(zone => {
+            zone.risk = calculateRiskLevel(zone.rainfall, zone.slope, zone.incidents, zone.soilStability);
+            zone.primaryRisk = getPrimaryRisk(zone);
+        });
+
+        // Initialize map
+        const map = L.map('map', { zoomControl: true }).setView([29.3803, 79.4636], 13);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+            maxZoom: 18,
+        }).addTo(map);
+
+        const riskColors = {
+            'high': '#dc2626',
+            'medium': '#f59e0b',
+            'low': '#16a34a'
+        };
+
+        const circles = [];
+
+        // Add zones to map as circles
+        nainitalZones.forEach(zone => {
+            // Calculate center point from coordinates
+            const lats = zone.coordinates.map(c => c[0]);
+            const lngs = zone.coordinates.map(c => c[1]);
+            const centerLat = lats.reduce((a, b) => a + b) / lats.length;
+            const centerLng = lngs.reduce((a, b) => a + b) / lngs.length;
+            
+            // Create circle marker (radius in meters)
+            const circle = L.circle([centerLat, centerLng], {
+                color: riskColors[zone.risk],
+                fillColor: riskColors[zone.risk],
+                fillOpacity: 0.4,
+                weight: 2,
+                radius: 400  // 400 meters radius for each zone
+            }).addTo(map);
+
+            const popupContent = `
+                <div class="popup-zone-name">${zone.name}</div>
+                <div class="popup-risk-level" style="color: ${riskColors[zone.risk]};">
+                    ${zone.risk.charAt(0).toUpperCase() + zone.risk.slice(1)} Risk
+                </div>
+                <div class="popup-description">${zone.description}</div>
+            `;
+
+            circle.bindPopup(popupContent);
+            circle.on('click', () => updateZoneInfo(zone));
+            circles.push(circle);
+        });
+
+        // Update zone info in sidebar
+        function updateZoneInfo(zone) {
+            const dotColor = zone.risk === 'high' ? '#dc2626' : zone.risk === 'medium' ? '#f59e0b' : '#16a34a';
+            document.getElementById('statusDot').style.backgroundColor = dotColor;
+            document.getElementById('zoneNameHeader').textContent = zone.name;
+            document.getElementById('closeBtn').style.display = 'block';
+            
+            const badge = document.getElementById('riskBadge');
+            badge.className = `risk-badge-pill ${zone.risk}`;
+            badge.innerHTML = `
+                <svg class="triangle-icon-svg" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                <span>${zone.risk.charAt(0).toUpperCase() + zone.risk.slice(1)} Risk</span>
+            `;
+            
+            document.getElementById('zoneDesc').textContent = zone.description;
+            document.getElementById('rainfallValue').textContent = zone.rainfall + 'mm/yr';
+            document.getElementById('slopeValue').textContent = zone.slope + '°';
+            document.getElementById('incidentsValue').textContent = zone.incidents;
+            document.getElementById('soilValue').textContent = zone.soilStability.charAt(0).toUpperCase() + zone.soilStability.slice(1);
+            document.getElementById('primaryRisk').textContent = zone.primaryRisk;
+        }
+
+        // Close button
+        document.getElementById('closeBtn').addEventListener('click', () => {
+            document.getElementById('closeBtn').style.display = 'none';
+            updateZoneInfo(nainitalZones.find(z => z.name === 'Sanatorium Complex'));
+        });
+
+        // Layer toggle
+        let layersVisible = true;
+        document.getElementById('layerToggle').addEventListener('click', function() {
+            layersVisible = !layersVisible;
+            this.classList.toggle('off');
+            
+            circles.forEach(c => {
+                if (layersVisible) {
+                    c.addTo(map);
+                } else {
+                    map.removeLayer(c);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
